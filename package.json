@@ -1,0 +1,12 @@
+{
+    "name":"baseservice",
+    "IPaddress":"192.168.31.98",
+    "IO_Module":[{
+        "IPAddess":"192.168.31.18"
+    }],
+    "iO_Method":[{
+           "name":"DigitalWrite",
+           "type":1
+            }
+]
+}

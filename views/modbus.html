@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>modular-2 system setup</title>
+  <link href="/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/css/default.css" rel="stylesheet">
+  <link href="/css/font-awesome.min.css" rel="stylesheet">
+   <style>
+     .card {
+       margin: 10px;
+     }
+     .led {
+      display:inline-block;
+     background-color: blue;
+     width:20px;
+     height:20px;
+   }
+   </style>
+  <script src="/js/jquery-3.4.1.min.js"></script>
+   <script src="/js/bootstrap.min.js"></script>
+   <script>
+     var flg=0;
+     var modbusFlg=false;
+         var outgoing_id=0;
+         var path;
+      $( document ).ready(function() {
+        $(window).resize(function(){
+          resizeCanvas();
+        })
+        $(window).on("unload", function(e) {
+          stop();
+       });
+        resizeCanvas();
+        window.restbed = { ws: null };
+        openIOsocket();           
+})
+ 
+
+function resizeCanvas(){
+            var canvas = document.getElementById("graph");
+          //  console.log("width:"+ $(canvas).parent().width);
+            var container = $(canvas).parent();
+                canvas.width  =$(container).width();
+            graph_init();
+
+        }
+
+
+function graph_init()
+{
+  var canvas=document.getElementById("graph");;
+        var context=canvas.getContext("2d");
+        var w=canvas.width;
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.strokeStyle = "rgb(128,255,00)";
+        context.fillStyle = "black";  
+	      context.fillRect(0, 0,canvas.width, 200); 
+
+        context.beginPath();
+        context.moveTo(0,100);
+        context.lineTo(w,100);
+        context.stroke();
+}	
+function get_outgoing_id()
+    {
+      outgoing_id++;
+      if (outgoing_id>5000) outgoing_id=0;
+      return outgoing_id;
+    }
+ function ledFlash()
+{
+  if (flg==1)
+                   { $("#led").css("background-color","blue");flg=0;}
+                    else 
+                  {  $("#led").css("background-color","red");flg=1;};
+}  
+function openIOsocket( )
+      {
+         if ( "WebSocket" in window )
+         {
+            var ws = new WebSocket( "ws://localhost:2019/iosocket/0234" );
+            ws.binaryType = "arraybuffer";
+            ws.onopen = function( )
+            {
+              // add_message( "Established connection." );
+             setInterval(function(){
+               if (window.restbed.ws.readyState  == window.restbed.ws.OPEN)
+              {
+                var jsonrpc={
+                  "method":"ping",
+                  "id": 0
+                }
+                  window.restbed.ws.send(JSON.stringify(jsonrpc));
+             }
+             },1500);
+              // toggle_control_access( );
+            };
+
+            ws.onmessage = function( evt )
+            {
+              //add_message( evt.data );
+           var eventMessage  = new Uint8Array(evt.data);
+            var s = new TextDecoder("utf-8").decode(eventMessage);
+          
+           var messageBody=JSON.parse(s);
+      //  console.log(messageBody);
+           if ("method" in messageBody)
+            {                                     
+                        if (messageBody.method=="welcome")  
+                        { 
+                        console.log("ws connected");
+                        }
+
+            };            
+           if ("result" in messageBody)
+           {        
+                    var  result=messageBody.result;
+                 // console.log(messageBody);
+                    if (result.status=="err")
+                    {
+                      
+                      console.log("error with Code: "+result.value[0]);
+                    }
+                    if (result.status=="modbus.query")
+                    {
+                      var sel=0;
+                      var binary_string= window.atob(result.value);
+                      var len = binary_string.length; 
+                      var value = new Uint8Array( len );     
+                      for (var i = 0; i < len; i++)   
+                          {
+                              value[i] = binary_string.charCodeAt(i);
+                          }          
+                      var   temperature=(((value[0]<<8)&0xff)|value[1])/10.0 ;
+                      var   humidity=(((value[2]<<8)&0xff)|value[3])/10.0;
+                      var   pm25=(((value[4]<<8)&0xff)|value[5])/10.0;
+                      var   pm10=(((value[6]<<8)&0xff)|value[7])/10.0;
+                      var   ligth=(((value[6]<<8)&0xff)|value[7])/10.0; 
+                      var   presure=(((value[6]<<8)&0xff)|value[7])/10.0;
+                      /*console.log("temperature:"+temperature+
+                                 "humidity:"+humidity+
+                                 "PM25: "+pm25+
+                                 "PM10: "+pm10+
+                                 "light: "+ light +
+                                 "presure: "+presure)*/
+                      $("#temperature").html(temperature);
+                      $("#humidity").html(humidity);
+                      $("#PM25").html(pm25);
+                      $("#PM10").html(pm10);
+                      $("#light").html(ligth);
+                      $("#presure").html(presure);
+                          ledFlash();
+                    } else
+              if (result.status=="OK")
+              {
+                 measurment();
+                if ("value" in result)
+               $("#result").html("600+2="+result.value[0]);
+              }
+           } 
+            }
+            ws.onclose = function( evt )
+            {
+           console.log("connection closed with Code:"+evt.code);
+           stop();
+               //toggle_control_access( );
+            };
+
+            ws.onerror = function( evt )
+            {
+              // add_message( "Error: socket connection interrupted." );
+            };
+
+            window.restbed.ws = ws;
+         }
+         else
+         {
+            alert( "WebSockets NOT supported by your Browser!" );
+         }
+      }
+function start(modbus_address,modbus_function,modbus_start,modbus_points)
+{ 
+  if (!modbusFlg)
+  { 
+  var val=[];
+  val[0]=2;//mode
+  val[1]=modbus_address;
+  val[2]=modbus_function;
+  val[3]=(modbus_start>>8)&0xff;
+  val[4]=modbus_start&0xff;
+  val[5]=(modbus_points>>8)&0xff;
+  val[6]=modbus_points&0xff;
+  
+  path="000/000/000";
+  var id=get_outgoing_id();
+  var jsonrpc={
+  "method":"modbus.query",
+  "mode":2,
+  "path":path,
+  "params":{"value":val},
+  "id": id
+ }
+ //console.log(jsonrpc);
+   window.restbed.ws.send(JSON.stringify(jsonrpc));
+   modbusFlg=true;
+  }
+} 
+function stop()
+{
+  if (modbusFlg)
+  { 
+  path="000/000/000";
+  var id=get_outgoing_id();
+  var jsonrpc={
+  "method":"modbus.query",
+  "mode":3,
+  "path":path,
+  "params":{"value":[3]},
+  "id": id
+ }
+ //console.log(jsonrpc);
+ modbusFlg=false;
+   window.restbed.ws.send(JSON.stringify(jsonrpc));
+  }
+}
+   </script>
+  </head>
+  
+ <body  class="container" οnresize="resize_canvas()">
+   <!-- Image and text -->
+   <nav class="navbar fixed-top  navbar-default ">
+      <a class="nav-link" href="http://localhost:2019/home/views/index.html"><i class="icon-home icon-2x "> </i>主页</a>
+      <a class="navbar-brand" href="#">modbus控制</a>
+      <a class="nav-link  pull-right" href="/views/modbus_setup.html"><i class="icon-cogs icon-2x"> </i>设置</a>
+    </nav>
+    <div class="led" id="led"></div>
+    <button class="btn btn-info" onclick="start(01,03,00,07)">启动</button>
+    <button class="btn btn-info" onclick="stop()">停止</button>
+   
+    <div class="row">
+        <div class="col-sm-4">
+          <div class="card bg-success text-white">
+            <div class="card-body">
+              <h1 class="card-title">温度：<span id="temperature">25.5</span></h1>                      
+            </div>
+          </div>
+        </div>  
+        <div class="col-sm-4">
+          <div class="card bg-warning text-white">
+            <div class="card-body">
+              <h1 class="card-title">湿度：<span id="humidity">98</span>%</h1>                       
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card bg-info text-white">
+               <div class="card-body">
+                <h1 class="card-title">PM2.5:<span id="PM25">100</span></h1>            
+               </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card bg-info text-white">
+               <div class="card-body">
+                <h1 class="card-title">PM1.0:<span id="PM10">100</span></h1>         
+               </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card bg-info text-white">
+               <div class="card-body">
+                <h1 class="card-title">照度:<span id="light">100</span></h1>            
+               </div>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="card bg-info text-white">
+               <div class="card-body">
+                <h1 class="card-title">大气压:<span id="presure">100</span></h1>         
+               </div>
+            </div>
+        </div>
+      </div>
+ 
+     
+     <h3>图示</h3>
+<canvas id="graph"  height="200"></canvas>
+  </body>
+  </html>

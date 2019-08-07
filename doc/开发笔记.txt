@@ -1,0 +1,27 @@
+使用的库
+rapidJson-- 这是一个include only 库，安装在 usr/include 中。
+jsontest -是一个restbed json 测试程序
+
+rapidJson 的使用笔记
+rapidJson add array
+         Document res;
+	     res.SetObject();
+		 Document::AllocatorType& allocator = res.GetAllocator();
+		 Value value(kObjectType);
+		 Value result(kArrayType);
+		 result.PushBack(1, allocator);
+		 result.PushBack(2, allocator);
+		 result.PushBack(3, allocator);
+		 result.PushBack(4, allocator);
+		 res.AddMember("jsonrpc","2.0",allocator);
+		 res.AddMember("result",result,allocator);
+
+modular-2 的代码
+ serial RPC STM nucle746  板
+
+web API
+使用postman	发送，content-type application/json body raw 填入json 。
+	 
+GET {"jsonrpc":"2.0","method":"digitalOut.write","params":{"pin":1，"value":1},"id": 1}	
+GET {"jsonrpc":"2.0","method":"digitalOut.read","params":{"pin":1},"id": 1}			 
+GET {"jsonrpc":"2.0","method":"digitalOut.flipflop","params":{"pin":1},"id": 1}		 

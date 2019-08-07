@@ -1,0 +1,8 @@
+
+sudo clang++ client.cpp   -I ./include  -L ./lib  -lpthread -lboost_system  -o client -std=c++11 
+
+sudo clang++ client.cpp   -I ./include  -L ./lib  -lpthread -lboost_system  -o client -std=c++11 
+sudo clang++ clientfft.cpp ./include/fft/*.cpp  -I ./include  -L ./lib  -lpthread -lboost_system  -o clientfft -std=c++11 
+--Add webservice class
+sudo clang++-6.0 gpio.cpp base64B.cpp ./include/fft/*.cpp ./include/webservice.cpp -I ./include  -L ./lib  -lpthread -lboost_system  -o gpio -std=c++11 
+sudo clang++  modbus.cpp base64B.cpp ./include/fft/*.cpp ./include/webservice.cpp -I ./include  -L ./lib  -lpthread -lboost_system  -o modbus -std=c++11 
